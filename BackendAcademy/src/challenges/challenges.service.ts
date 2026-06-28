@@ -1,40 +1,79 @@
-import { Injectable } from '@nestjs/common';
-import type { WeeklyChallengeMetadata } from './interfaces/weekly-challenge-metadata.interface';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { CastChallengeVoteDto } from './dto/cast-challenge-vote.dto';
+import {
+  ChallengeVoteResponse,
+  ChallengeVoteTally,
+  ChallengeVoteValue,
+} from './interfaces/challenge-vote.interface';
 
 @Injectable()
 export class ChallengesService {
-  getWeeklyChallengeMetadata(): WeeklyChallengeMetadata {
-    const now = new Date();
-    const weekStart = this.getWeekStart(now);
-    const weekEnd = this.getWeekEnd(weekStart);
+  private readonly votesByChallenge = new Map<string, Map<string, ChallengeVoteValue>>();
 
+  castVote(challengeId: string, dto: CastChallengeVoteDto): ChallengeVoteResponse {
+    const normalizedChallengeId = this.normalizeId(challengeId, 'challengeId');
+    const userId = this.normalizeId(dto.userId, 'userId');
+    const value = this.normalizeVote(dto.value);
+
+    let votes = this.votesByChallenge.get(normalizedChallengeId);
+    if (!votes) {
+      votes = new Map<string, ChallengeVoteValue>();
+      this.votesByChallenge.set(normalizedChallengeId, votes);
+    }
+
+    votes.set(userId, value);
     return {
-      id: 'weekly-challenge-v1',
-      title: 'Weekly Rust Challenge',
-      description:
-        'Complete a short Rust exercise this week to earn bonus XP and improve your skills.',
-      startDate: weekStart.toISOString(),
-      endDate: weekEnd.toISOString(),
-      rewardXp: 100,
-      bonusDescription:
-        'Finish the challenge before the end of the week to unlock extra rewards.',
-      isActive: true,
+      ...this.getTally(normalizedChallengeId),
+      userId,
+      userVote: value,
     };
   }
 
-  private getWeekStart(now: Date): Date {
-    const start = new Date(now);
-    const day = start.getDay();
-    const diff = start.getDate() - day;
-    start.setHours(0, 0, 0, 0);
-    start.setDate(diff);
-    return start;
+  getTally(challengeId: string): ChallengeVoteTally {
+    const normalizedChallengeId = this.normalizeId(challengeId, 'challengeId');
+    const votes = this.votesByChallenge.get(normalizedChallengeId);
+    let upvotes = 0;
+    let downvotes = 0;
+
+    for (const value of votes?.values() ?? []) {
+      if (value === 'up') {
+        upvotes += 1;
+      } else {
+        downvotes += 1;
+      }
+    }
+
+    return {
+      challengeId: normalizedChallengeId,
+      downvotes,
+      score: upvotes - downvotes,
+      totalVotes: upvotes + downvotes,
+      upvotes,
+    };
   }
 
-  private getWeekEnd(startOfWeek: Date): Date {
-    const end = new Date(startOfWeek);
-    end.setDate(startOfWeek.getDate() + 6);
-    end.setHours(23, 59, 59, 999);
-    return end;
+  resetVotes(): void {
+    this.votesByChallenge.clear();
+  }
+
+  private normalizeId(value: string | undefined, field: string): string {
+    const normalized = value?.trim();
+    if (!normalized) {
+      throw new BadRequestException({
+        error: 'INVALID_CHALLENGE_VOTE',
+        message: `${field} is required`,
+      });
+    }
+    return normalized;
+  }
+
+  private normalizeVote(value: ChallengeVoteValue): ChallengeVoteValue {
+    if (value !== 'up' && value !== 'down') {
+      throw new BadRequestException({
+        error: 'INVALID_CHALLENGE_VOTE',
+        message: 'value must be either "up" or "down"',
+      });
+    }
+    return value;
   }
 }

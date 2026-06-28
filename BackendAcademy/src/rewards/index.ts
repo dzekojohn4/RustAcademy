@@ -13,6 +13,12 @@ export type {
   LevelThreshold,
   UserProgressionResponse,
   ThresholdsResponse,
+  LeaderboardEntry,
+  LeaderboardResponse,
+  UserLeaderboardPosition,
+  PrizeDistribution,
+  PrizePoolResponse,
+  CreatePrizePoolRequest,
 } from './interfaces/rewards.interfaces';
 export type {
   StreakResponse,
