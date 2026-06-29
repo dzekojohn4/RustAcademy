@@ -26,6 +26,13 @@ export interface ModerationActionDto {
   reason?: string;
 }
 
+export interface FollowResponse {
+  followerId: string;
+  targetUserId: string;
+  followersCount: number;
+  followingCount: number;
+}
+
 export interface SocialFeedResponse {
   posts: SocialPost[];
   total: number;

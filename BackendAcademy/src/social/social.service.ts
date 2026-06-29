@@ -3,6 +3,7 @@ import { CreateSocialPostDto } from './dto/create-social-post.dto';
 import { GetSocialFeedDto } from './dto/get-social-feed.dto';
 import { UpdateModerationDto } from './dto/update-moderation.dto';
 import {
+  FollowResponse,
   ModerationStatus,
   SocialFeedResponse,
   SocialPost,
@@ -11,6 +12,8 @@ import {
 @Injectable()
 export class SocialService {
   private readonly posts = new Map<string, SocialPost>();
+  private readonly userFollowers = new Map<string, Set<string>>();
+  private readonly userFollowing = new Map<string, Set<string>>();
   private idCounter = 1;
 
   createPost(userId: string, dto: CreateSocialPostDto): SocialPost {
@@ -163,6 +166,63 @@ export class SocialService {
     return post;
   }
 
+  followUser(userId: string, targetUserId: string): FollowResponse {
+    const normalizedUserId = this.normalizeUserId(userId);
+    const normalizedTargetUserId = this.normalizeUserId(targetUserId);
+
+    if (normalizedUserId === normalizedTargetUserId) {
+      throw new BadRequestException({
+        error: 'INVALID_FOLLOW_TARGET',
+        message: 'Users cannot follow themselves',
+      });
+    }
+
+    const followers = this.getRelationshipSet(this.userFollowers, normalizedTargetUserId);
+    const following = this.getRelationshipSet(this.userFollowing, normalizedUserId);
+
+    followers.add(normalizedUserId);
+    following.add(normalizedTargetUserId);
+
+    return {
+      followerId: normalizedUserId,
+      targetUserId: normalizedTargetUserId,
+      followersCount: followers.size,
+      followingCount: following.size,
+    };
+  }
+
+  unfollowUser(userId: string, targetUserId: string): FollowResponse {
+    const normalizedUserId = this.normalizeUserId(userId);
+    const normalizedTargetUserId = this.normalizeUserId(targetUserId);
+
+    if (normalizedUserId === normalizedTargetUserId) {
+      throw new BadRequestException({
+        error: 'INVALID_FOLLOW_TARGET',
+        message: 'Users cannot unfollow themselves',
+      });
+    }
+
+    const followers = this.userFollowers.get(normalizedTargetUserId);
+    const following = this.userFollowing.get(normalizedUserId);
+
+    if (!followers?.has(normalizedUserId) || !following?.has(normalizedTargetUserId)) {
+      throw new BadRequestException({
+        error: 'NOT_FOLLOWING',
+        message: 'Cannot unfollow a user that is not currently followed',
+      });
+    }
+
+    followers.delete(normalizedUserId);
+    following.delete(normalizedTargetUserId);
+
+    return {
+      followerId: normalizedUserId,
+      targetUserId: normalizedTargetUserId,
+      followersCount: followers.size,
+      followingCount: following.size,
+    };
+  }
+
   getPendingPosts(): SocialPost[] {
     return Array.from(this.posts.values()).filter(
       (post) => post.moderationStatus === 'pending',
@@ -203,6 +263,13 @@ export class SocialService {
       });
     }
     return normalized;
+  }
+
+  private getRelationshipSet(map: Map<string, Set<string>>, key: string): Set<string> {
+    if (!map.has(key)) {
+      map.set(key, new Set<string>());
+    }
+    return map.get(key)!;
   }
 
   private normalizeStatus(status: string): ModerationStatus {

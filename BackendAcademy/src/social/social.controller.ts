@@ -13,7 +13,11 @@ import {
 import { CreateSocialPostDto } from './dto/create-social-post.dto';
 import { GetSocialFeedDto } from './dto/get-social-feed.dto';
 import { UpdateModerationDto } from './dto/update-moderation.dto';
-import { SocialFeedResponse, SocialPost } from './interfaces/social-post.interface';
+import {
+  FollowResponse,
+  SocialFeedResponse,
+  SocialPost,
+} from './interfaces/social-post.interface';
 import { SocialService } from './social.service';
 
 @Controller('social')
@@ -67,6 +71,24 @@ export class SocialController {
   @HttpCode(HttpStatus.NO_CONTENT)
   deletePost(@Param('postId') postId: string): void {
     this.socialService.deletePost(postId);
+  }
+
+  @Post('users/:userId/follow/:targetUserId')
+  @HttpCode(HttpStatus.OK)
+  followUser(
+    @Param('userId') userId: string,
+    @Param('targetUserId') targetUserId: string,
+  ): FollowResponse {
+    return this.socialService.followUser(userId, targetUserId);
+  }
+
+  @Delete('users/:userId/follow/:targetUserId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  unfollowUser(
+    @Param('userId') userId: string,
+    @Param('targetUserId') targetUserId: string,
+  ): void {
+    this.socialService.unfollowUser(userId, targetUserId);
   }
 
   @Get('moderation/pending')

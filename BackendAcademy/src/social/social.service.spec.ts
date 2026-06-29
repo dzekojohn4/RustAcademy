@@ -82,4 +82,28 @@ describe('SocialService', () => {
   it('should throw BadRequestException for invalid status filter', () => {
     expect(() => service.getFeed({ status: 'invalid' as any })).toThrow(BadRequestException);
   });
+
+  it('should follow and unfollow a user', () => {
+    const followResponse = service.followUser('user-1', 'user-2');
+
+    expect(followResponse.followerId).toBe('user-1');
+    expect(followResponse.targetUserId).toBe('user-2');
+    expect(followResponse.followersCount).toBe(1);
+    expect(followResponse.followingCount).toBe(1);
+
+    const unfollowResponse = service.unfollowUser('user-1', 'user-2');
+
+    expect(unfollowResponse.followerId).toBe('user-1');
+    expect(unfollowResponse.targetUserId).toBe('user-2');
+    expect(unfollowResponse.followersCount).toBe(0);
+    expect(unfollowResponse.followingCount).toBe(0);
+  });
+
+  it('should not allow self follow', () => {
+    expect(() => service.followUser('user-1', 'user-1')).toThrow(BadRequestException);
+  });
+
+  it('should not allow unfollow when not following', () => {
+    expect(() => service.unfollowUser('user-1', 'user-2')).toThrow(BadRequestException);
+  });
 });
